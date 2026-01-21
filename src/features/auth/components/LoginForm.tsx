@@ -9,13 +9,13 @@ interface LoginFormProps {
 }
 
 export const LoginForm = ({ onSubmit, loading, error }: LoginFormProps) => {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     try {
-      await onSubmit({ username, password })
+      await onSubmit({ email, password })
     } catch (err) {
       // Error is handled by the parent component
       console.error('Login failed:', err)
@@ -25,17 +25,17 @@ export const LoginForm = ({ onSubmit, loading, error }: LoginFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-          Usuario
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          Email
         </label>
         <input
-          id="username"
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="tu_usuario"
+          placeholder="tu@email.com"
         />
       </div>
 

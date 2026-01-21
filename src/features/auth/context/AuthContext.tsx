@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
+import { supabase } from '@/lib/supabase'
 import { authService } from '../services/auth.service'
 import type { User, LoginCredentials } from '../types/auth.types'
 
@@ -20,17 +21,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    authService.getCurrentUser()
-      .then((currentUser) => {
-        setUser(currentUser)
+    // Check active session
+    authService.getSession()
+      .then((session) => {
+        if (session?.user) {
+          // Obtener información completa del usuario incluyendo is_manager
+          authService.getCurrentUser().then((userData) => {
+            if (userData) {
+              setUser(userData)
+            }
+          })
+        }
       })
       .catch((err) => {
-        console.error('Error loading user:', err)
+        console.error('Error loading session:', err)
         setUser(null)
       })
       .finally(() => {
         setLoading(false)
       })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        // Obtener información completa del usuario incluyendo is_manager
+        const userData = await authService.getCurrentUser()
+        if (userData) {
+          setUser(userData)
+        }
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const login = async (credentials: LoginCredentials) => {
@@ -38,10 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true)
       setError(null)
       const userData = await authService.login(credentials)
-      console.log('Setting user in context:', userData)
       setUser(userData)
-      localStorage.setItem('user', JSON.stringify(userData))
-      console.log('User set, isAuthenticated should be:', !!userData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión')
       throw err

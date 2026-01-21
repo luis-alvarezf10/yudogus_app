@@ -2,55 +2,58 @@ import { supabase } from '@/lib/supabase'
 import type { LoginCredentials, User } from '../types/auth.types'
 
 export const authService = {
-  async login({ username, password }: LoginCredentials) {
-    try {
-      console.log('Intentando login con:', { username, password })
-      
-      // First, check if user exists
-      const { data: users, error: searchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username)
-      
-      console.log('Búsqueda de usuario:', { users, searchError })
-      
-      if (searchError) {
-        console.error('Error buscando usuario:', searchError)
-        throw new Error(`Error de base de datos: ${searchError.message}`)
-      }
-      
-      if (!users || users.length === 0) {
-        throw new Error('Usuario no encontrado')
-      }
-      
-      // Check password
-      const user = users.find(u => u.password === password)
-      
-      if (!user) {
-        throw new Error('Contraseña incorrecta')
-      }
-      
-      console.log('Login exitoso:', user)
-      return user as User
-    } catch (err) {
-      console.error('Login error:', err)
-      throw err
-    }
+  async login({ email, password }: LoginCredentials) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    
+    if (error) throw error
+    
+    // Obtener información del empleado desde la tabla employees
+    const { data: employeeData } = await supabase
+      .from('employees')
+      .select('name, is_manager')
+      .eq('id', data.user.id)
+      .single()
+    
+    return {
+      id: data.user.id,
+      email: data.user.email!,
+      name: employeeData?.name,
+      is_manager: employeeData?.is_manager || false,
+      created_at: data.user.created_at
+    } as User
   },
 
   async logout() {
-    localStorage.removeItem('user')
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
   },
 
   async getCurrentUser(): Promise<User | null> {
-    try {
-      const userStr = localStorage.getItem('user')
-      if (!userStr) return null
-      return JSON.parse(userStr) as User
-    } catch (err) {
-      console.error('Error getting current user:', err)
-      localStorage.removeItem('user')
-      return null
-    }
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) return null
+    
+    // Obtener información del empleado desde la tabla employees
+    const { data: employeeData } = await supabase
+      .from('employees')
+      .select('name, is_manager')
+      .eq('id', user.id)
+      .single()
+    
+    return {
+      id: user.id,
+      email: user.email!,
+      name: employeeData?.name,
+      is_manager: employeeData?.is_manager || false,
+      created_at: user.created_at
+    } as User
+  },
+
+  async getSession() {
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) throw error
+    return session
   }
 }

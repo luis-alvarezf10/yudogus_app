@@ -1,11 +1,9 @@
 import { useAuth } from './features/auth'
 import { LoginPage } from './features/auth'
-import { DashboardPage } from './features/dashboard'
+import { DashboardPage, ManagerDashboardPage } from './features/dashboard'
 
 function App() {
-  const { isAuthenticated, loading, user } = useAuth()
-
-  console.log('App render:', { isAuthenticated, loading, user })
+  const { user, isAuthenticated, loading } = useAuth()
 
   if (loading) {
     return (
@@ -18,7 +16,17 @@ function App() {
     )
   }
 
-  return isAuthenticated ? <DashboardPage /> : <LoginPage />
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
+
+  // Mostrar dashboard de gerente si is_manager es true
+  if (user?.is_manager) {
+    return <ManagerDashboardPage />
+  }
+
+  // Mostrar dashboard normal para empleados regulares
+  return <DashboardPage />
 }
 
 export default App
