@@ -58,10 +58,10 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         `}
       >
         {/* Logo/Header */}
-        <div className="p-6 flex items-center justify-between border-b border-[#233348]">
+        <div className="p-4 flex items-center justify-between">
           <div className="flex flex-col gap-1">
             <h1 className="text-white text-lg font-bold leading-normal">Yudagus App</h1>
-            <p className="text-[#92a9c9] text-xs font-normal">Sistema de Gestión</p>
+            <p className="text-[#92a9c9] text-xs font-normal">Software Reviews</p>
           </div>
           {/* Botón cerrar para móvil */}
           <button
@@ -72,9 +72,28 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           </button>
         </div>
 
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {menuItems.map((item) => (
+            <div
+            key={item.id}
+              onClick={() => handleMenuItemClick(item.id)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                activeItem === item.id
+                  ? 'bg-blue-600 text-white'
+                  : 'text-[#92a9c9] hover:text-white hover:bg-[#233348]'
+              }`}
+            >
+              <span className="text-xl">{item.icon}</span>
+              <p className="text-sm font-medium">{item.label}</p>
+            </div>
+          ))}
+        </nav>
+
         {/* User Info */}
         {user && (
-          <div className="px-6 py-4 border-b border-[#233348]">
+          <div className="px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
                 {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
@@ -90,25 +109,6 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             </div>
           </div>
         )}
-
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => handleMenuItemClick(item.id)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                activeItem === item.id
-                  ? 'bg-blue-600 text-white'
-                  : 'text-[#92a9c9] hover:text-white hover:bg-[#233348]'
-              }`}
-            >
-              <span className="text-xl">{item.icon}</span>
-              <p className="text-sm font-medium">{item.label}</p>
-            </div>
-          ))}
-        </nav>
-
         {/* Footer Actions */}
         <div className="p-4 border-t border-[#233348] space-y-2">
           <button className="w-full flex items-center justify-center gap-2 rounded-lg h-10 bg-[#233348] text-white text-sm font-bold hover:bg-[#2d415a] transition-colors">
