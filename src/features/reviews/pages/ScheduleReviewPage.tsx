@@ -1,14 +1,52 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth'
 import { reviewService } from '../services/review.service'
 import type { CreateReviewData } from '../types/review.types'
+import { supabase } from '@/lib/supabase'
+
+interface Role {
+  id: string
+  name: string
+  description: string | null
+}
+
+interface Project {
+  id: string
+  name: string
+}
+
+interface Employee {
+  id: string
+  name: string
+  national_id?: string | null
+  is_manager: boolean
+  created_at: string
+  id_profession?: string | null
+  professions?: {
+    name: string
+  } | null
+}
+
+interface SelectedEmployee {
+  id: string
+  name: string
+  profession: string
+}
 
 export const ScheduleReviewPage = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(true)
+  const [roles, setRoles] = useState<Role[]>([])
+  const [loadingRoles, setLoadingRoles] = useState(true)
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [loadingEmployees, setLoadingEmployees] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedEmployees, setSelectedEmployees] = useState<Record<string, SelectedEmployee>>({})
 
   const [formData, setFormData] = useState({
     title: '',
@@ -19,18 +57,87 @@ export const ScheduleReviewPage = () => {
     id_status: null as number | null
   })
 
-  const [parts, setParts] = useState<string[]>([])
-  const [partInput, setPartInput] = useState('')
+  // Cargar proyectos y roles al montar el componente
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Cargar proyectos
+        setLoadingProjects(true)
+        const { data: projectsData, error: projectsError } = await supabase
+          .from('projects')
+          .select('id, name')
+          .order('name')
 
-  const handleAddPart = () => {
-    if (partInput.trim() && !parts.includes(partInput.trim())) {
-      setParts([...parts, partInput.trim()])
-      setPartInput('')
+        if (projectsError) throw projectsError
+        setProjects(projectsData || [])
+
+        // Cargar roles (excluyendo admin y gerente)
+        setLoadingRoles(true)
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('roles')
+          .select('id, name, description')
+          .not('name', 'in', '("admin","gerente","Admin","Gerente")')
+          .order('name')
+
+        if (rolesError) throw rolesError
+        setRoles(rolesData || [])
+      } catch (err) {
+        console.error('Error al cargar datos:', err)
+        setError('No se pudieron cargar los datos necesarios')
+      } finally {
+        setLoadingProjects(false)
+        setLoadingRoles(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  // Cargar empleados cuando se abre el modal
+  const loadEmployees = async () => {
+    try {
+      setLoadingEmployees(true)
+      const { data, error: employeeError } = await supabase
+        .from('employees')
+        .select(`
+          *,
+          professions (
+            name
+          )
+        `)
+        .order('name')
+
+      if (employeeError) throw employeeError
+      setEmployees(data || [])
+    } catch (err) {
+      console.error('Error al cargar empleados:', err)
+      setError('No se pudieron cargar los empleados')
+    } finally {
+      setLoadingEmployees(false)
     }
   }
 
-  const handleRemovePart = (partToRemove: string) => {
-    setParts(parts.filter(p => p !== partToRemove))
+  const handleOpenModal = () => {
+    setIsModalOpen(true)
+    loadEmployees()
+  }
+
+  const handleSelectEmployee = (roleId: string, employee: Employee) => {
+    setSelectedEmployees({
+      ...selectedEmployees,
+      [roleId]: {
+        id: employee.id,
+        name: employee.name,
+        profession: employee.professions?.name || 'Sin profesión'
+      }
+    })
+    setIsModalOpen(false)
+  }
+
+  const handleRemoveEmployee = (roleId: string) => {
+    const newSelectedEmployees = { ...selectedEmployees }
+    delete newSelectedEmployees[roleId]
+    setSelectedEmployees(newSelectedEmployees)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,12 +149,11 @@ export const ScheduleReviewPage = () => {
 
       const reviewData: CreateReviewData = {
         ...formData,
-        part: parts.join(', '), // Unir todas las partes
-        id_manager: user?.id || null // Asignar el ID del gerente actual
+        id_manager: user?.id || null
       }
 
       await reviewService.createReview(reviewData)
-      navigate('/dashboard') // Redirigir al dashboard
+      navigate('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al programar la revisión')
     } finally {
@@ -115,14 +221,22 @@ export const ScheduleReviewPage = () => {
                     <label className="block text-gray-300 text-sm font-medium mb-2">
                       Selección de Proyecto
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.id_project}
                       onChange={(e) => setFormData({ ...formData, id_project: e.target.value })}
-                      placeholder="ID del Proyecto"
                       required
-                      className="w-full px-4 py-2 bg-[#1a2332] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                      disabled={loadingProjects}
+                      className="w-full px-4 py-2 bg-[#1a2332] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="" className="bg-[#1a2332]">
+                        {loadingProjects ? 'Cargando proyectos...' : 'Selecciona un proyecto'}
+                      </option>
+                      {projects.map((project) => (
+                        <option key={project.id} value={project.id} className="bg-[#1a2332]">
+                          {project.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -167,46 +281,16 @@ export const ScheduleReviewPage = () => {
 
                 <div>
                   <label className="block text-gray-300 text-sm font-medium mb-2">
-                    Partes a Revisar
+                    Parte a Revisar
                   </label>
-                  
-                  {/* Tags de partes */}
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {parts.map((part) => (
-                      <span
-                        key={part}
-                        className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm"
-                      >
-                        {part}
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePart(part)}
-                          className="hover:text-blue-300"
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Input para agregar partes */}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={partInput}
-                      onChange={(e) => setPartInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPart())}
-                      placeholder="Escribe un componente y presiona enter..."
-                      className="flex-1 px-4 py-2 bg-[#1a2332] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddPart}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      ADD
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    value={formData.part}
+                    onChange={(e) => setFormData({ ...formData, part: e.target.value })}
+                    placeholder="ej., Módulo de autenticación, API de pagos..."
+                    required
+                    className="w-full px-4 py-2 bg-[#1a2332] border border-gray-700 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>
@@ -224,18 +308,64 @@ export const ScheduleReviewPage = () => {
               </p>
 
               <div className="space-y-4">
-                {/* Placeholder para participantes */}
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  Funcionalidad de asignación de participantes próximamente
-                </div>
+                {loadingRoles ? (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    Cargando roles...
+                  </div>
+                ) : roles.length > 0 ? (
+                  roles.map((role) => (
+                    <div key={role.id} className="space-y-2">
+                      {/* Botón para seleccionar empleado - solo si no hay empleado seleccionado */}
+                      {!selectedEmployees[role.id] && (
+                        <button
+                          type="button"
+                          onClick={handleOpenModal}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-gray-600 text-gray-400 rounded-lg hover:bg-gray-800 hover:border-gray-500 transition-colors"
+                        >
+                          <span>👤</span>
+                          <span className="text-sm">Seleccionar Empleado</span>
+                        </button>
+                      )}
 
-                <button
-                  type="button"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-700 text-blue-400 rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  <span>👤</span>
-                  <span>Agregar Miembro del Equipo</span>
-                </button>
+                      {/* Información del empleado seleccionado */}
+                      {selectedEmployees[role.id] && (
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 relative">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                            {selectedEmployees[role.id].name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-semibold truncate capitalize">
+                              {selectedEmployees[role.id].name}
+                            </p>
+                            <p className="text-gray-400 text-xs truncate capitalize">
+                              {selectedEmployees[role.id].profession}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEmployee(role.id)}
+                            className="text-gray-400 hover:text-red-400 transition-colors"
+                            title="Eliminar empleado"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Información del rol */}
+                      <div className="flex flex-col gap-1 px-4 py-3 rounded-lg border border-gray-700 bg-[#1a2332]">
+                        <p className="text-sm font-medium text-white">{role.name}</p>
+                        {role.description && (
+                          <p className="text-xs text-gray-400">{role.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    No hay roles disponibles
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -249,10 +379,7 @@ export const ScheduleReviewPage = () => {
         )}
 
         {/* Footer Actions */}
-        <div className="mt-6 flex items-center justify-between">
-          <p className="text-gray-400 text-sm">
-            Se enviarán correos de invitación a todos los participantes al programar.
-          </p>
+        <div className="mt-6 flex items-center justify-end">
           <div className="flex gap-3">
             <button
               type="button"
@@ -272,6 +399,95 @@ export const ScheduleReviewPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Modal de Selección de Empleados */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111822] rounded-xl border border-gray-800 w-full max-w-4xl max-h-[80vh] flex flex-col">
+            {/* Header del Modal */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-800">
+              <div>
+                <h3 className="text-white text-xl font-bold">Seleccionar Empleado</h3>
+                <p className="text-gray-400 text-sm mt-1">Elige un empleado para asignar al rol</p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingEmployees ? (
+                <div className="text-center py-12 text-gray-400">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  Cargando empleados...
+                </div>
+              ) : employees.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  No hay empleados registrados
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wider">
+                        <th className="px-6 py-4 font-semibold">Empleado</th>
+                        <th className="px-6 py-4 font-semibold">Profesión</th>
+                        <th className="px-6 py-4 font-semibold">Tipo</th>
+                        <th className="px-6 py-4 font-semibold text-right">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {employees.map((employee) => (
+                        <tr
+                          key={employee.id}
+                          className="hover:bg-gray-800/20 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                                {employee.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-white text-sm font-medium capitalize">
+                                {employee.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-gray-400 text-sm capitalize">
+                            {employee.professions?.name || 'Sin profesión'}
+                          </td>
+                          <td className="px-6 py-4">
+                            {employee.is_manager ? (
+                              <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-purple-500/10 text-purple-400">
+                                GERENTE
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-blue-500/10 text-blue-400">
+                                EMPLEADO
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleSelectEmployee(roles[0]?.id || '', employee)}
+                              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              Seleccionar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
