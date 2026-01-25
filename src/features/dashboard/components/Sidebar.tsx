@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth'
 
 interface MenuItem {
   id: string
   label: string
   icon: string
-  active?: boolean
+  path: string
 }
 
 interface SidebarProps {
@@ -15,14 +16,15 @@ interface SidebarProps {
 
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { user, logout } = useAuth()
-  const [activeItem, setActiveItem] = useState('dashboard')
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const menuItems: MenuItem[] = [
-    { id: 'dashboard', label: 'Panel de Control', icon: '📊' },
-    { id: 'projects', label: 'Proyectos', icon: '💼' },
-    { id: 'clients', label: 'Clientes', icon: '👥' },
-    { id: 'employees', label: 'Empleados', icon: '👤' },
-    { id: 'reviews', label: 'Revisiones', icon: '📝' },
+    { id: 'dashboard', label: 'Panel de Control', icon: '📊', path: '/dashboard' },
+    { id: 'projects', label: 'Proyectos', icon: '💼', path: '/projects' },
+    { id: 'clients', label: 'Clientes', icon: '👥', path: '/clients' },
+    { id: 'employees', label: 'Empleados', icon: '👤', path: '/employees' },
+    { id: 'reviews', label: 'Revisiones', icon: '📝', path: '/reviews' },
   ]
 
   const handleLogout = async () => {
@@ -33,8 +35,8 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     }
   }
 
-  const handleMenuItemClick = (itemId: string) => {
-    setActiveItem(itemId)
+  const handleMenuItemClick = (item: MenuItem) => {
+    navigate(item.path)
     onClose() // Cerrar sidebar en móvil al hacer clic
   }
 
@@ -77,10 +79,10 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {menuItems.map((item) => (
             <div
-            key={item.id}
-              onClick={() => handleMenuItemClick(item.id)}
+              key={item.id}
+              onClick={() => handleMenuItemClick(item)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                activeItem === item.id
+                location.pathname === item.path
                   ? 'bg-blue-600 text-white'
                   : 'text-[#92a9c9] hover:text-white hover:bg-[#233348]'
               }`}

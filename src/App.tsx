@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './features/auth/hooks/useAuthContext'
 import { LoginPage } from './features/auth'
-import { DashboardPage, ManagerDashboardPage } from './features/dashboard'
-import { ScheduleReviewPage } from './features/reviews'
+import { DashboardPage, ManagerDashboardPage, DashboardLayout } from './features/dashboard'
+import { ScheduleReviewPage, ReviewsPage } from './features/reviews'
+import { ProjectsPage, CreateProjectPage } from './features/projects'
+import { ClientsPage } from './features/clients'
+import { EmployeesPage } from './features/employees'
 
 function App() {
   const { user, isAuthenticated, loading } = useAuth()
@@ -28,13 +31,22 @@ function App() {
           </>
         ) : user?.is_manager ? (
           <>
-            <Route path="/dashboard" element={<ManagerDashboardPage />} />
+            <Route path="/dashboard" element={<DashboardLayout><ManagerDashboardPage /></DashboardLayout>} />
+            <Route path="/projects" element={<DashboardLayout><ProjectsPage /></DashboardLayout>} />
+            <Route path="/projects/create" element={<CreateProjectPage />} />
+            <Route path="/clients" element={<DashboardLayout><ClientsPage /></DashboardLayout>} />
+            <Route path="/employees" element={<DashboardLayout><EmployeesPage /></DashboardLayout>} />
+            <Route path="/reviews" element={<DashboardLayout><ReviewsPage /></DashboardLayout>} />
             <Route path="/reviews/schedule" element={<ScheduleReviewPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </>
         ) : (
           <>
-            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardLayout><DashboardPage /></DashboardLayout>} />
+            <Route path="/projects" element={<DashboardLayout><ProjectsPage /></DashboardLayout>} />
+            <Route path="/clients" element={<DashboardLayout><ClientsPage /></DashboardLayout>} />
+            <Route path="/employees" element={<DashboardLayout><EmployeesPage /></DashboardLayout>} />
+            <Route path="/reviews" element={<DashboardLayout><ReviewsPage /></DashboardLayout>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </>
         )}

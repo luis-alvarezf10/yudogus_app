@@ -46,11 +46,14 @@ export const ScheduleReviewPage = () => {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loadingEmployees, setLoadingEmployees] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false)
+  const [currentRoleId, setCurrentRoleId] = useState<string | null>(null)
   const [selectedEmployees, setSelectedEmployees] = useState<Record<string, SelectedEmployee>>({})
 
   const [formData, setFormData] = useState({
     title: '',
     id_project: '',
+    project_name: '',
     description: '',
     part: '',
     date: new Date().toISOString().split('T')[0],
@@ -117,7 +120,8 @@ export const ScheduleReviewPage = () => {
     }
   }
 
-  const handleOpenModal = () => {
+  const handleOpenModal = (roleId: string) => {
+    setCurrentRoleId(roleId)
     setIsModalOpen(true)
     loadEmployees()
   }
@@ -134,6 +138,15 @@ export const ScheduleReviewPage = () => {
     setIsModalOpen(false)
   }
 
+  const handleSelectProject = (project: Project) => {
+    setFormData({
+      ...formData,
+      id_project: project.id,
+      project_name: project.name
+    })
+    setIsProjectModalOpen(false)
+  }
+
   const handleRemoveEmployee = (roleId: string) => {
     const newSelectedEmployees = { ...selectedEmployees }
     delete newSelectedEmployees[roleId]
@@ -147,12 +160,38 @@ export const ScheduleReviewPage = () => {
       setLoading(true)
       setError(null)
 
+      // Preparar datos de la revisión (excluir project_name que no existe en la BD)
       const reviewData: CreateReviewData = {
-        ...formData,
+        id_project: formData.id_project,
+        title: formData.title,
+        description: formData.description,
+        part: formData.part,
+        date: formData.date,
+        id_status: formData.id_status,
         id_manager: user?.id || null
       }
 
-      await reviewService.createReview(reviewData)
+      // Crear la revisión
+      const createdReview = await reviewService.createReview(reviewData)
+
+      // Crear los participantes
+      const participantsData = Object.entries(selectedEmployees).map(([roleId, employee]) => ({
+        id_review: createdReview.id,
+        id_employee: employee.id,
+        role: roleId
+      }))
+
+      if (participantsData.length > 0) {
+        const { error: participantsError } = await supabase
+          .from('participants')
+          .insert(participantsData)
+
+        if (participantsError) {
+          console.error('Error al crear participantes:', participantsError)
+          throw new Error('Error al asignar participantes a la revisión')
+        }
+      }
+
       navigate('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al programar la revisión')
@@ -221,22 +260,41 @@ export const ScheduleReviewPage = () => {
                     <label className="block text-gray-300 text-sm font-medium mb-2">
                       Selección de Proyecto
                     </label>
-                    <select
-                      value={formData.id_project}
-                      onChange={(e) => setFormData({ ...formData, id_project: e.target.value })}
-                      required
-                      disabled={loadingProjects}
-                      className="w-full px-4 py-2 bg-[#1a2332] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="" className="bg-[#1a2332]">
-                        {loadingProjects ? 'Cargando proyectos...' : 'Selecciona un proyecto'}
-                      </option>
-                      {projects.map((project) => (
-                        <option key={project.id} value={project.id} className="bg-[#1a2332]">
-                          {project.name}
-                        </option>
-                      ))}
-                    </select>
+                    {!formData.id_project ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsProjectModalOpen(true)}
+                        disabled={loadingProjects}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-gray-600 text-gray-400 rounded-lg hover:bg-gray-800 hover:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span>📁</span>
+                        <span className="text-sm">
+                          {loadingProjects ? 'Cargando proyectos...' : 'Seleccionar Proyecto'}
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 relative">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                          📁
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-semibold truncate">
+                            {formData.project_name}
+                          </p>
+                          <p className="text-gray-400 text-xs truncate">
+                            Proyecto seleccionado
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, id_project: '', project_name: '' })}
+                          className="text-gray-400 hover:text-red-400 transition-colors"
+                          title="Eliminar proyecto"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -319,7 +377,7 @@ export const ScheduleReviewPage = () => {
                       {!selectedEmployees[role.id] && (
                         <button
                           type="button"
-                          onClick={handleOpenModal}
+                          onClick={() => handleOpenModal(role.id)}
                           className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-gray-600 text-gray-400 rounded-lg hover:bg-gray-800 hover:border-gray-500 transition-colors"
                         >
                           <span>👤</span>
@@ -425,54 +483,123 @@ export const ScheduleReviewPage = () => {
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
                   Cargando empleados...
                 </div>
-              ) : employees.length === 0 ? (
+              ) : (() => {
+                // Filtrar empleados: excluir gerentes y los ya seleccionados
+                const selectedEmployeeIds = Object.values(selectedEmployees).map(emp => emp.id)
+                const availableEmployees = employees.filter(
+                  employee => !employee.is_manager && !selectedEmployeeIds.includes(employee.id)
+                )
+
+                return availableEmployees.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    No hay empleados disponibles para seleccionar
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wider">
+                          <th className="px-6 py-4 font-semibold">Empleado</th>
+                          <th className="px-6 py-4 font-semibold">Profesión</th>
+                          <th className="px-6 py-4 font-semibold text-right">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {availableEmployees.map((employee) => (
+                          <tr
+                            key={employee.id}
+                            className="hover:bg-gray-800/20 transition-colors"
+                          >
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                                  {employee.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-white text-sm font-medium capitalize">
+                                  {employee.name}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-gray-400 text-sm capitalize">
+                              {employee.professions?.name || 'Sin profesión'}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                onClick={() => handleSelectEmployee(currentRoleId || '', employee)}
+                                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                Seleccionar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Selección de Proyectos */}
+      {isProjectModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111822] rounded-xl border border-gray-800 w-full max-w-4xl max-h-[80vh] flex flex-col">
+            {/* Header del Modal */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-800">
+              <div>
+                <h3 className="text-white text-xl font-bold">Seleccionar Proyecto</h3>
+                <p className="text-gray-400 text-sm mt-1">Elige el proyecto para esta revisión técnica</p>
+              </div>
+              <button
+                onClick={() => setIsProjectModalOpen(false)}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingProjects ? (
                 <div className="text-center py-12 text-gray-400">
-                  No hay empleados registrados
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  Cargando proyectos...
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  No hay proyectos registrados
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wider">
-                        <th className="px-6 py-4 font-semibold">Empleado</th>
-                        <th className="px-6 py-4 font-semibold">Profesión</th>
-                        <th className="px-6 py-4 font-semibold">Tipo</th>
+                        <th className="px-6 py-4 font-semibold">Proyecto</th>
                         <th className="px-6 py-4 font-semibold text-right">Acción</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
-                      {employees.map((employee) => (
+                      {projects.map((project) => (
                         <tr
-                          key={employee.id}
+                          key={project.id}
                           className="hover:bg-gray-800/20 transition-colors"
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                                {employee.name.charAt(0).toUpperCase()}
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                                📁
                               </div>
-                              <span className="text-white text-sm font-medium capitalize">
-                                {employee.name}
+                              <span className="text-white text-sm font-medium">
+                                {project.name}
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-gray-400 text-sm capitalize">
-                            {employee.professions?.name || 'Sin profesión'}
-                          </td>
-                          <td className="px-6 py-4">
-                            {employee.is_manager ? (
-                              <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-purple-500/10 text-purple-400">
-                                GERENTE
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-blue-500/10 text-blue-400">
-                                EMPLEADO
-                              </span>
-                            )}
-                          </td>
                           <td className="px-6 py-4 text-right">
                             <button
-                              onClick={() => handleSelectEmployee(roles[0]?.id || '', employee)}
+                              onClick={() => handleSelectProject(project)}
                               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                             >
                               Seleccionar
