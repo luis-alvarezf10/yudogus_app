@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './features/auth/hooks/useAuthContext'
 import { LoginPage } from './features/auth'
-import { DashboardPage, ManagerDashboardPage, EmployeeDashboardPage, DashboardLayout } from './features/dashboard'
+import { ManagerDashboardPage, EmployeeDashboardPage, DashboardLayout } from './features/dashboard'
 import { ScheduleReviewPage, ReviewsPage, ReviewDetailPage, MyReviewsPage } from './features/reviews'
 import { ProjectsPage, CreateProjectPage } from './features/projects'
 import { ClientsPage } from './features/clients'
