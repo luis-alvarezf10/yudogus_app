@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './features/auth/hooks/useAuthContext'
 import { LoginPage } from './features/auth'
 import { DashboardPage, ManagerDashboardPage, DashboardLayout } from './features/dashboard'
-import { ScheduleReviewPage, ReviewsPage } from './features/reviews'
+import { ScheduleReviewPage, ReviewsPage, ReviewDetailPage } from './features/reviews'
 import { ProjectsPage, CreateProjectPage } from './features/projects'
 import { ClientsPage } from './features/clients'
 import { EmployeesPage } from './features/employees'
@@ -37,6 +37,7 @@ function App() {
             <Route path="/clients" element={<DashboardLayout><ClientsPage /></DashboardLayout>} />
             <Route path="/employees" element={<DashboardLayout><EmployeesPage /></DashboardLayout>} />
             <Route path="/reviews" element={<DashboardLayout><ReviewsPage /></DashboardLayout>} />
+            <Route path="/reviews/:id" element={<ReviewDetailPage />} />
             <Route path="/reviews/schedule" element={<ScheduleReviewPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </>
@@ -47,6 +48,7 @@ function App() {
             <Route path="/clients" element={<DashboardLayout><ClientsPage /></DashboardLayout>} />
             <Route path="/employees" element={<DashboardLayout><EmployeesPage /></DashboardLayout>} />
             <Route path="/reviews" element={<DashboardLayout><ReviewsPage /></DashboardLayout>} />
+            <Route path="/reviews/:id" element={<ReviewDetailPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </>
         )}

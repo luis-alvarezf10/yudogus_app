@@ -109,7 +109,8 @@ export const ReviewsPage = () => {
             return (
               <div
                 key={review.id}
-                className="bg-[#111822] rounded-xl border border-gray-800 p-6 hover:border-blue-500/50 transition-colors"
+                onClick={() => navigate(`/reviews/${review.id}`)}
+                className="bg-[#111822] rounded-xl border border-gray-800 p-6 hover:border-blue-500/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

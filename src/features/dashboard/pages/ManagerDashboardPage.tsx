@@ -243,6 +243,7 @@ export const ManagerDashboardPage = () => {
                         {reviews.map((review) => (
                           <tr
                             key={review.id}
+                            onClick={() => navigate(`/reviews/${review.id}`)}
                             className="hover:bg-gray-800/20 transition-colors cursor-pointer group"
                           >
                             <td className="px-6 py-4">
@@ -267,6 +268,7 @@ export const ManagerDashboardPage = () => {
                     {reviews.map((review) => (
                       <div
                         key={review.id}
+                        onClick={() => navigate(`/reviews/${review.id}`)}
                         className="p-4 hover:bg-gray-800/20 transition-colors cursor-pointer"
                       >
                         <div className="flex justify-between items-start mb-2">
