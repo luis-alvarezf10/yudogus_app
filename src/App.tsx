@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './features/auth'
+import { useAuth } from './features/auth/hooks/useAuthContext'
 import { LoginPage } from './features/auth'
 import { DashboardPage, ManagerDashboardPage } from './features/dashboard'
 import { ScheduleReviewPage } from './features/reviews'
@@ -18,29 +18,26 @@ function App() {
     )
   }
 
-  if (!isAuthenticated) {
-    return <LoginPage />
-  }
-
-  // Rutas para gerentes
-  if (user?.is_manager) {
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="/dashboard" element={<ManagerDashboardPage />} />
-          <Route path="/reviews/schedule" element={<ScheduleReviewPage />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
-    )
-  }
-
-  // Rutas para empleados regulares
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {!isAuthenticated ? (
+          <>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </>
+        ) : user?.is_manager ? (
+          <>
+            <Route path="/dashboard" element={<ManagerDashboardPage />} />
+            <Route path="/reviews/schedule" element={<ScheduleReviewPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </>
+        ) : (
+          <>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </>
+        )}
       </Routes>
     </BrowserRouter>
   )
