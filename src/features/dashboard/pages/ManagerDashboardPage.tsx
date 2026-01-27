@@ -31,15 +31,17 @@ export const ManagerDashboardPage = () => {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
   const [pendingReviewsCount, setPendingReviewsCount] = useState(0)
+  const [activeProjectsCount, setActiveProjectsCount] = useState(0)
+  const [clientsCount, setClientsCount] = useState(0)
   
   const stats: StatCard[] = [
     {
       title: 'Proyectos Activos',
-      value: 12,
+      value: activeProjectsCount,
       icon: '📊',
       change: '+2%',
       changeType: 'positive',
-      subtitle: 'vs mes anterior'
+      subtitle: 'con revisiones pendientes'
     },
     {
       title: 'Revisiones Pendientes',
@@ -49,12 +51,22 @@ export const ManagerDashboardPage = () => {
       changeType: 'negative',
       subtitle: 'vs semana anterior'
     },
+    {
+      title: 'Clientes Registrados',
+      value: clientsCount,
+      icon: '👥',
+      change: '+5%',
+      changeType: 'positive',
+      subtitle: 'total de clientes'
+    },
   ]
 
   useEffect(() => {
     loadReviews()
     loadEmployees()
     loadPendingReviewsCount()
+    loadActiveProjectsCount()
+    loadClientsCount()
   }, [])
 
   const loadPendingReviewsCount = async () => {
@@ -68,6 +80,37 @@ export const ManagerDashboardPage = () => {
       setPendingReviewsCount(count || 0)
     } catch (err) {
       console.error('Error loading pending reviews count:', err)
+    }
+  }
+
+  const loadActiveProjectsCount = async () => {
+    try {
+      // Obtener proyectos únicos que tienen revisiones pendientes (no completadas)
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('id_project')
+        .or('id_status.is.null,id_status.neq.1') // null (en espera) o diferente de 1 (completada)
+
+      if (error) throw error
+
+      // Contar proyectos únicos
+      const uniqueProjects = new Set(data?.map(r => r.id_project) || [])
+      setActiveProjectsCount(uniqueProjects.size)
+    } catch (err) {
+      console.error('Error loading active projects count:', err)
+    }
+  }
+
+  const loadClientsCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('clients')
+        .select('*', { count: 'exact', head: true })
+
+      if (error) throw error
+      setClientsCount(count || 0)
+    } catch (err) {
+      console.error('Error loading clients count:', err)
     }
   }
 
