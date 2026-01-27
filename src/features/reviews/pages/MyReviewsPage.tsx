@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth'
 import { supabase } from '@/lib/supabase'
 import { REVIEW_STATUSES, DEFAULT_STATUS } from '../types/review.types'
+import { formatDateWithOptions } from '@/lib/dateUtils'
 
 interface Review {
   id: string
@@ -99,12 +100,29 @@ export const MyReviewsPage = () => {
   }
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('es-ES', { 
-      day: '2-digit', 
+    return formatDateWithOptions(dateString, 'es-ES', {
+      day: '2-digit',
       month: 'long',
-      year: 'numeric' 
+      year: 'numeric'
     })
+  }
+
+  const isToday = (dateString: string) => {
+    const today = new Date()
+    
+    // Dividir la fecha en partes para evitar problemas de zona horaria
+    const [year, month, day] = dateString.split('-').map(Number)
+    
+    return (
+      year === today.getFullYear() &&
+      month === today.getMonth() + 1 && // getMonth() devuelve 0-11, pero el string tiene 1-12
+      day === today.getDate()
+    )
+  }
+
+  const handleAttendReview = (e: React.MouseEvent, reviewId: string) => {
+    e.stopPropagation()
+    navigate(`/reviews/${reviewId}`)
   }
 
   return (
@@ -162,6 +180,8 @@ export const MyReviewsPage = () => {
         <div className="space-y-4">
           {participations.map((participation) => {
             const status = getStatusInfo(participation.reviews.id_status)
+            const isTodayReview = isToday(participation.reviews.date)
+            
             return (
               <div
                 key={participation.id}
@@ -175,6 +195,11 @@ export const MyReviewsPage = () => {
                       <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(status.color)}`}>
                         {status.name}
                       </span>
+                      {isTodayReview && (
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse">
+                          🔔 HOY
+                        </span>
+                      )}
                     </div>
                     <p className="text-gray-400 text-sm mb-3">{participation.reviews.description}</p>
                     
@@ -186,7 +211,7 @@ export const MyReviewsPage = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
                   <div>
                     <span className="text-gray-500">Proyecto:</span>
                     <p className="text-white">{participation.reviews.projects?.name || 'N/A'}</p>
@@ -200,6 +225,19 @@ export const MyReviewsPage = () => {
                     <p className="text-white">{formatDate(participation.reviews.date)}</p>
                   </div>
                 </div>
+
+                {/* Botón de Asistir si es hoy */}
+                {isTodayReview && (
+                  <div className="pt-4 border-t border-gray-700">
+                    <button
+                      onClick={(e) => handleAttendReview(e, participation.reviews.id)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/20"
+                    >
+                      <span className="text-xl">✓</span>
+                      <span>Asistir a la Revisión</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })}
