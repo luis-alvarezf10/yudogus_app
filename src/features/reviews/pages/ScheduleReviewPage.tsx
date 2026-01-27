@@ -160,6 +160,14 @@ export const ScheduleReviewPage = () => {
       setLoading(true)
       setError(null)
 
+      // Validar que todos los roles tengan un participante asignado
+      const unassignedRoles = roles.filter(role => !selectedEmployees[role.id])
+      
+      if (unassignedRoles.length > 0) {
+        const roleNames = unassignedRoles.map(role => role.name).join(', ')
+        throw new Error(`Debes asignar participantes a todos los roles. Faltan: ${roleNames}`)
+      }
+
       // Preparar datos de la revisión (excluir project_name que no existe en la BD)
       const reviewData: CreateReviewData = {
         id_project: formData.id_project,
