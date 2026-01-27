@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useAuth } from '@/features/auth'
 import { supabase } from '@/lib/supabase'
 
 interface Role {
@@ -41,7 +40,6 @@ interface Participant {
 export const EditReviewPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -118,12 +116,19 @@ export const EditReviewPage = () => {
           participantsData.forEach((p: Participant) => {
             const employee = employeesData?.find((e: any) => e.id === p.id_employee)
             if (employee) {
+              let professionName = 'Sin profesión'
+              if (employee.professions) {
+                if (Array.isArray(employee.professions)) {
+                  professionName = employee.professions[0]?.name || 'Sin profesión'
+                } else {
+                  professionName = (employee.professions as any).name || 'Sin profesión'
+                }
+              }
+              
               participantsMap[p.role] = {
                 id: employee.id,
                 name: employee.name,
-                profession: Array.isArray(employee.professions) 
-                  ? employee.professions[0]?.name || 'Sin profesión'
-                  : employee.professions?.name || 'Sin profesión'
+                profession: professionName
               }
             }
           })
