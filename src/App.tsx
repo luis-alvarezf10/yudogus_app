@@ -7,6 +7,7 @@ import { EditReviewPage } from './features/reviews/pages/EditReviewPage'
 import { ProjectsPage, CreateProjectPage } from './features/projects'
 import { ClientsPage } from './features/clients'
 import { EmployeesPage } from './features/employees'
+import { SettingsPage } from './features/settings'
 
 function App() {
   const { user, isAuthenticated, loading } = useAuth()
@@ -41,6 +42,7 @@ function App() {
             <Route path="/reviews/:id" element={<ReviewDetailPage />} />
             <Route path="/reviews/:id/edit" element={<EditReviewPage />} />
             <Route path="/reviews/schedule" element={<ScheduleReviewPage />} />
+            <Route path="/settings" element={<DashboardLayout><SettingsPage /></DashboardLayout>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </>
         ) : (
@@ -49,6 +51,7 @@ function App() {
             <Route path="/my-reviews" element={<DashboardLayout><MyReviewsPage /></DashboardLayout>} />
             <Route path="/projects" element={<DashboardLayout><ProjectsPage /></DashboardLayout>} />
             <Route path="/reviews/:id" element={<ReviewDetailPage />} />
+            <Route path="/settings" element={<DashboardLayout><SettingsPage /></DashboardLayout>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </>
         )}

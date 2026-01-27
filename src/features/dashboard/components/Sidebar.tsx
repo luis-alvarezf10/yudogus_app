@@ -122,7 +122,13 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         )}
         {/* Footer Actions */}
         <div className="p-4 border-t border-[#233348] space-y-2">
-          <button className="w-full flex items-center justify-center gap-2 rounded-lg h-10 bg-[#233348] text-white text-sm font-bold hover:bg-[#2d415a] transition-colors">
+          <button 
+            onClick={() => {
+              navigate('/settings')
+              onClose()
+            }}
+            className="w-full flex items-center justify-center gap-2 rounded-lg h-10 bg-[#233348] text-white text-sm font-bold hover:bg-[#2d415a] transition-colors"
+          >
             <span className="text-lg">⚙️</span>
             <span>Configuración</span>
           </button>
