@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth'
 import { REVIEW_STATUSES, DEFAULT_STATUS } from '../types/review.types'
 
 interface ReviewDetail {
@@ -38,10 +39,13 @@ interface Participant {
 export const ReviewDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [review, setReview] = useState<ReviewDetail | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -116,6 +120,50 @@ export const ReviewDetailPage = () => {
     return colors[color] || colors.gray
   }
 
+  const handleDeleteClick = () => {
+    setDeleteModalOpen(true)
+  }
+
+  const handleEditClick = () => {
+    navigate(`/reviews/${id}/edit`)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!review) return
+
+    try {
+      setDeleting(true)
+      
+      // Primero eliminar los participantes
+      const { error: participantsError } = await supabase
+        .from('participants')
+        .delete()
+        .eq('id_review', review.id)
+
+      if (participantsError) throw participantsError
+
+      // Luego eliminar la revisión
+      const { error: reviewError } = await supabase
+        .from('reviews')
+        .delete()
+        .eq('id', review.id)
+
+      if (reviewError) throw reviewError
+
+      // Redirigir a la lista de revisiones
+      navigate('/reviews')
+    } catch (err) {
+      console.error('Error al eliminar revisión:', err)
+      setError('No se pudo eliminar la revisión')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
@@ -153,7 +201,7 @@ export const ReviewDetailPage = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
             <button
-              onClick={() => navigate('/reviews')}
+              onClick={() => navigate(-1)}
               className="text-gray-400 hover:text-white"
             >
               ← Volver
@@ -298,7 +346,79 @@ export const ReviewDetailPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Botones de acción solo para gerentes */}
+        {user?.is_manager && (
+          <div className="mt-6 flex items-center justify-start gap-3">
+            <button
+              onClick={handleEditClick}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <span>Editar Revisión</span>
+            </button>
+            <button
+              onClick={handleDeleteClick}
+              className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <span>Eliminar Revisión</span>
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Modal de Confirmación de Eliminación */}
+      {deleteModalOpen && review && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111822] rounded-xl border border-gray-800 w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-2xl">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="text-white text-xl font-bold">Eliminar Revisión</h3>
+                  <p className="text-gray-400 text-sm">Esta acción no se puede deshacer</p>
+                </div>
+              </div>
+
+              <div className="bg-[#1a2332] rounded-lg p-4 mb-6">
+                <p className="text-white font-semibold mb-1">{review.title}</p>
+                <p className="text-gray-400 text-sm">{review.description}</p>
+              </div>
+
+              <p className="text-gray-300 text-sm mb-6">
+                ¿Estás seguro de que deseas eliminar esta revisión? Se eliminarán también todos los participantes asignados.
+              </p>
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleDeleteCancel}
+                  disabled={deleting}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {deleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Eliminando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Eliminar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
